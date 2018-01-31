@@ -82,6 +82,7 @@ private:
 
   DWORD m_DitherMode;
   BOOL m_TrayIcon;
+  BOOL m_OverUnder;
 };
 
 class CLAVVideoFormatsProp : public CBaseDSPropPage

@@ -133,6 +133,7 @@ STDMETHODIMP CLAVVideo::JoinFilterGraph(IFilterGraph * pGraph, LPCWSTR pName)
 
 HRESULT CLAVVideo::LoadDefaults()
 {
+  m_settings.OverUnder = TRUE;
   m_settings.TrayIcon = FALSE;
 
   // Set Defaults
@@ -211,6 +212,9 @@ HRESULT CLAVVideo::ReadSettings(HKEY rootKey)
 
   CRegistry reg = CRegistry(rootKey, LAVC_VIDEO_REGISTRY_KEY, hr, TRUE);
   if (SUCCEEDED(hr)) {
+    bFlag = reg.ReadBOOL(L"OverUnder", hr);
+    if (SUCCEEDED(hr)) m_settings.OverUnder = bFlag;
+
     bFlag = reg.ReadBOOL(L"TrayIcon", hr);
     if (SUCCEEDED(hr)) m_settings.TrayIcon = bFlag;
 
@@ -332,6 +336,7 @@ HRESULT CLAVVideo::SaveSettings()
   CreateRegistryKey(HKEY_CURRENT_USER, LAVC_VIDEO_REGISTRY_KEY);
   CRegistry reg = CRegistry(HKEY_CURRENT_USER, LAVC_VIDEO_REGISTRY_KEY, hr);
   if (SUCCEEDED(hr)) {
+    reg.WriteBOOL(L"OverUnder", m_settings.OverUnder);
     reg.WriteBOOL(L"TrayIcon", m_settings.TrayIcon);
     reg.WriteDWORD(L"StreamAR", m_settings.StreamAR);
     reg.WriteDWORD(L"NumThreads", m_settings.NumThreads);
@@ -1706,6 +1711,13 @@ HRESULT CLAVVideo::DeliverToRenderer(LAVFrame *pFrame)
     height = 1080;
   }
 
+  bool bForceOverUnder3D = m_settings.OverUnder && (pFrame->flags & LAV_FRAME_FLAG_MVC);
+  if (bForceOverUnder3D)
+  {
+    height *= 2;
+    pFrame->aspect_ratio.den *= 2;
+  }
+
   if (m_PixFmtConverter.SetInputFmt(pFrame->format, pFrame->bpp) || m_bForceFormatNegotiation) {
     DbgLog((LOG_TRACE, 10, L"::Decode(): Changed input pixel format to %d (%d bpp)", pFrame->format, pFrame->bpp));
 
@@ -1791,14 +1803,17 @@ HRESULT CLAVVideo::DeliverToRenderer(LAVFrame *pFrame)
     QueryPerformanceCounter(&start);
   #endif
 
-    if (pFrame->direct && !m_PixFmtConverter.IsDirectModeSupported((uintptr_t)pDataOut, pBIH->biWidth)) {
+    if (pFrame->direct && (bForceOverUnder3D || !m_PixFmtConverter.IsDirectModeSupported((uintptr_t)pDataOut, pBIH->biWidth))) {
       DeDirectFrame(pFrame, true);
     }
 
     if (pFrame->direct)
       m_PixFmtConverter.ConvertDirect(pFrame, pDataOut, width, height, pBIH->biWidth, abs(pBIH->biHeight));
     else
-      m_PixFmtConverter.Convert(pFrame->data, pFrame->stride, pDataOut, width, height, pBIH->biWidth, abs(pBIH->biHeight));
+      if (bForceOverUnder3D)
+        m_PixFmtConverter.ConvertOverUnder(pFrame->data, pFrame->stereo, pFrame->stride, pDataOut, width, height / 2, pBIH->biWidth, abs(pBIH->biHeight));
+      else
+        m_PixFmtConverter.Convert(pFrame->data, pFrame->stride, pDataOut, width, height, pBIH->biWidth, abs(pBIH->biHeight));
 
   #if defined(DEBUG) && DEBUG_PIXELCONV_TIMINGS
     QueryPerformanceCounter(&end);
@@ -1820,7 +1835,7 @@ HRESULT CLAVVideo::DeliverToRenderer(LAVFrame *pFrame)
     }
 
     // Write the second view into IMediaSample3D, if available
-    if (pFrame->flags & LAV_FRAME_FLAG_MVC) {
+    if (!bForceOverUnder3D && (pFrame->flags & LAV_FRAME_FLAG_MVC)) {
       IMediaSample3D *pSample3D = nullptr;
       if (SUCCEEDED(hr = pSampleOut->QueryInterface(&pSample3D))) {
         BYTE *pDataOut3D = nullptr;
@@ -2340,6 +2355,17 @@ STDMETHODIMP CLAVVideo::SetTrayIcon(BOOL bEnabled)
 STDMETHODIMP_(BOOL) CLAVVideo::GetTrayIcon()
 {
   return m_settings.TrayIcon;
+}
+
+STDMETHODIMP CLAVVideo::SetOverUnder(BOOL bEnabled)
+{
+  m_settings.OverUnder = bEnabled;
+  return SaveSettings();
+}
+
+STDMETHODIMP_(BOOL) CLAVVideo::GetOverUnder()
+{
+  return m_settings.OverUnder;
 }
 
 STDMETHODIMP CLAVVideo::SetDeinterlacingMode(LAVDeintMode deintMode)

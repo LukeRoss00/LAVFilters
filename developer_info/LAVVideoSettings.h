@@ -353,6 +353,12 @@ interface __declspec(uuid("FA40D6E9-4D38-4761-ADD2-71A9EC5FD32F")) ILAVVideoSett
   // Get Tray Icon
   STDMETHOD_(BOOL,GetTrayIcon)() = 0;
 
+  // Toggle Over/Under
+  STDMETHOD(SetOverUnder)(BOOL bEnabled) = 0;
+
+  // Get Over/Under
+  STDMETHOD_(BOOL,GetOverUnder)() = 0;
+
   // Set the Deint Mode
   STDMETHOD(SetDeinterlacingMode)(LAVDeintMode deintMode) = 0;
 

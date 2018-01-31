@@ -495,6 +495,33 @@ HRESULT CLAVPixFmtConverter::Convert(const BYTE* const src[4], const ptrdiff_t s
   return hr;
 }
 
+HRESULT CLAVPixFmtConverter::ConvertOverUnder(const BYTE* const srcBase[4], const BYTE* const srcExtra[4], const ptrdiff_t srcStride[4], uint8_t *dst, int width, int height, ptrdiff_t dstStride, int planeHeight) {
+  planeHeight = max(height * 2, planeHeight);
+  // Check if we have proper pixel alignment and the dst memory is actually aligned
+  if (m_RequiredAlignment && (FFALIGN(dstStride, m_RequiredAlignment) != dstStride || ((uintptr_t)dst % 16u)))
+    return E_FAIL;
+
+  uint8_t *dstBaseArray[4] = {0};
+  uint8_t *dstExtraArray[4] = {0};
+  ptrdiff_t dstStrideArray[4] = {0};
+  ptrdiff_t byteStride = dstStride * lav_pixfmt_desc[m_OutputPixFmt].codedbytes;
+
+  dstBaseArray[0] = dst;
+  dstStrideArray[0] = byteStride;
+  dstExtraArray[0] = dstBaseArray[0] + dstStrideArray[0] * (height / lav_pixfmt_desc[m_OutputPixFmt].planeHeight[0]);
+
+  for (ptrdiff_t i = 1; i < lav_pixfmt_desc[m_OutputPixFmt].planes; ++i) {
+    dstBaseArray[i] = dstBaseArray[i-1] + dstStrideArray[i-1] * (planeHeight / lav_pixfmt_desc[m_OutputPixFmt].planeHeight[i-1]);
+    dstStrideArray[i] = byteStride / lav_pixfmt_desc[m_OutputPixFmt].planeWidth[i];
+    dstExtraArray[i] = dstBaseArray[i] + dstStrideArray[i] * (height / lav_pixfmt_desc[m_OutputPixFmt].planeHeight[i]);
+  }
+
+  HRESULT hr = (this->*convert)(srcBase, srcStride, dstBaseArray, dstStrideArray, width, height, m_InputPixFmt, m_InBpp, m_OutputPixFmt);
+  if (FAILED(hr))
+    return hr;
+  return (this->*convert)(srcExtra, srcStride, dstExtraArray, dstStrideArray, width, height, m_InputPixFmt, m_InBpp, m_OutputPixFmt);
+}
+
 BOOL CLAVPixFmtConverter::IsDirectModeSupported(uintptr_t dst, ptrdiff_t stride) {
   const int stride_align = (m_OutputPixFmt == LAVOutPixFmt_YV12 ? 32 : 16);
   if (FFALIGN(stride, stride_align) != stride || (dst % 16u))

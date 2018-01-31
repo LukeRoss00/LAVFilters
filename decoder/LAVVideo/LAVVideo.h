@@ -128,6 +128,9 @@ public:
   STDMETHODIMP SetTrayIcon(BOOL bEnabled);
   STDMETHODIMP_(BOOL) GetTrayIcon();
 
+  STDMETHODIMP SetOverUnder(BOOL bEnabled);
+  STDMETHODIMP_(BOOL) GetOverUnder();
+
   STDMETHODIMP SetDeinterlacingMode(LAVDeintMode deintMode);
   STDMETHODIMP_(LAVDeintMode) GetDeinterlacingMode();
 
@@ -287,6 +290,7 @@ private:
 
   BOOL                 m_bRuntimeConfig = FALSE;
   struct VideoSettings {
+    BOOL OverUnder;
     BOOL TrayIcon;
     DWORD StreamAR;
     DWORD NumThreads;

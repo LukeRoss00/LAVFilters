@@ -172,6 +172,9 @@ HRESULT CLAVVideoSettingsProp::OnApplyChanges()
   bFlag = (BOOL)SendDlgItemMessage(m_Dlg, IDC_TRAYICON, BM_GETCHECK, 0, 0);
   m_pVideoSettings->SetTrayIcon(bFlag);
 
+  bFlag = (BOOL)SendDlgItemMessage(m_Dlg, IDC_OVERUNDER, BM_GETCHECK, 0, 0);
+  m_pVideoSettings->SetOverUnder(bFlag);
+
   LoadData();
 
   return hr;
@@ -322,6 +325,7 @@ HRESULT CLAVVideoSettingsProp::OnActivate()
     SendDlgItemMessage(m_Dlg, IDC_DITHER_RANDOM, BM_SETCHECK, (m_DitherMode == LAVDither_Random), 0);
 
     SendDlgItemMessage(m_Dlg, IDC_TRAYICON, BM_SETCHECK, m_TrayIcon, 0);
+    SendDlgItemMessage(m_Dlg, IDC_OVERUNDER, BM_SETCHECK, m_OverUnder, 0);
 
     UpdateHWOptions();
     UpdateYADIFOptions();
@@ -463,6 +467,7 @@ HRESULT CLAVVideoSettingsProp::LoadData()
   m_DitherMode = m_pVideoSettings->GetDitherMode();
 
   m_TrayIcon = m_pVideoSettings->GetTrayIcon();
+  m_OverUnder = m_pVideoSettings->GetOverUnder();
 
   return hr;
 }
@@ -709,6 +714,11 @@ INT_PTR CLAVVideoSettingsProp::OnReceiveMessage(HWND hwnd, UINT uMsg, WPARAM wPa
     } else if (LOWORD(wParam) == IDC_TRAYICON && HIWORD(wParam) == BN_CLICKED) {
       lValue = SendDlgItemMessage(m_Dlg, LOWORD(wParam), BM_GETCHECK, 0, 0);
       if (lValue != m_TrayIcon) {
+        SetDirty();
+      }
+    } else if (LOWORD(wParam) == IDC_OVERUNDER && HIWORD(wParam) == BN_CLICKED) {
+      lValue = SendDlgItemMessage(m_Dlg, LOWORD(wParam), BM_GETCHECK, 0, 0);
+      if (lValue != m_OverUnder) {
         SetDirty();
       }
     }
